@@ -22,12 +22,16 @@ SVC_ACCOUNT_PASS="PASSWORD"
 DOMAIN="domain.com"
 LDAP_SERVER="dc.domain.com"
 SEARCH_BASE="dc=domain,dc=com"
-SAM_ACCOUNTNAME=$1
+ACCOUNTNAME="$1"
 ## Programatic Variables
 SCRIPT_DIR="$(dirname "$0")"
 
 # Search LDAP for our user account
-RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(sAMAccountName=$SAM_ACCOUNTNAME)" "objectGUID")
+if [[ $1 == *@* ]]; then 
+	RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(userPrincipalName=$ACCOUNTNAME)" "objectGUID")
+	else
+	RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(sAMAccountName=$ACCOUNTNAME)" "objectGUID")
+fi
 
 # Get our user DN and objectGUID from the result above.
 USER_GUID_BASE64="$(echo "$RESULT" | awk -F ":: " '/objectGUID/ {print $2}')"
