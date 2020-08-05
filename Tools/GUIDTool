@@ -1,0 +1,45 @@
+#!/bin/zsh
+
+#
+# Author:   Calum Hunter
+# Contributer: Peet McKinney
+# Date:     2020.04.08
+# Version:  1.0.1
+# Purpose:  To generate a Mac UID from the objectGUID attribute
+#           (GeneratedUID) in AD. 
+#           This uses the same method that the Apple
+#           AD Plugin uses
+#
+
+## Bail silently without input 
+if [ -z "$1" ]; then
+	exit 1
+fi 
+
+## Start by loading up our ldap query variables
+SVC_ACCOUNT_NAME="ldap_query_serviceaccount"
+SVC_ACCOUNT_PASS="PASSWORD"
+DOMAIN="domain.com"
+LDAP_SERVER="dc.domain.com"
+SEARCH_BASE="dc=domain,dc=com"
+SAM_ACCOUNTNAME=$1
+## Programatic Variables
+SCRIPT_DIR="$(dirname "$0")"
+
+# Search LDAP for our user account
+RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(sAMAccountName=$SAM_ACCOUNTNAME)" "objectGUID")
+
+# Get our user DN and objectGUID from the result above.
+USER_GUID_BASE64="$(echo "$RESULT" | awk -F ":: " '/objectGUID/ {print $2}')"
+
+# Get our GeneratedUID from LDAPSEARCH by decoding and hex dumping it
+#$SCRIPT_DIR/guid-tool "$USER_GUID_BASE64"
+#"$SCRIPT_DIR/guid-tool" "$USER_GUID_BASE64"
+GUID=$("$SCRIPT_DIR/guid-tool" "$USER_GUID_BASE64")
+
+# Echo our output
+
+#echo $GUID_32_DEC
+echo $GUID
+
+exit 0
