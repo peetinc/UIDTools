@@ -1,12 +1,22 @@
-# Atari 2600 (Stella) support for multiple assemblers
-# - DASM
-# - CC65
+# Folder view configuration files
+.DS_Store
+Desktop.ini
 
-# Assembled binaries and object directories
-obj/
-a.out
-*.bin
-*.a26
+# Thumbnail cache files
+._*
+Thumbs.db
 
-# Add in special Atari 7800-based binaries for good measure
-*.a78
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+
+# Compiled Python files
+*.pyc
+
+# Compiled C++ files
+*.out
+
+# Application specific files
+venv
+node_modules
+.sass-cache
