@@ -17,11 +17,12 @@ if [ -z "$1" ]; then
 fi 
 
 ## Start by loading up our ldap query variables
-SVC_ACCOUNT_NAME="ldap_query_serviceaccount"
-SVC_ACCOUNT_PASS="PASSWORD"
-DOMAIN="domain.com"
-LDAP_SERVER="dc.domain.com"
-SEARCH_BASE="dc=domain,dc=com"
+UIDTOOLS_PLIST="tld.domain.uidtools"
+SVC_ACCOUNT_NAME=$(defaults read $UIDTOOLS_PLIST SVC_ACCOUNT_NAME)
+SVC_ACCOUNT_PASS=$(defaults read $UIDTOOLS_PLIST SVC_ACCOUNT_PASS)
+DOMAIN=$(defaults read $UIDTOOLS_PLIST DOMAIN)
+LDAP_SERVER=$(defaults read $UIDTOOLS_PLIST LDAP_SERVER)
+SEARCH_BASE=$(defaults read $UIDTOOLS_PLIST SEARCH_BASE)
 ACCOUNTNAME="$1"
 ## Programatic Variables
 SCRIPT_DIR="$(dirname "$0")"
