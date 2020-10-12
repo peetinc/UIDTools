@@ -11,28 +11,66 @@
 #           AD Plugin uses
 #
 
+# Must be run as root
+if [ "$EUID" -ne 0 ]; then 
+	echo "Please run as root"
+	exit 1
+fi
+
 ## Bail silently without input 
 if [ -z "$1" ]; then
+	echo "Please provide username ... ./IDTool UserName"
 	exit 1
 fi 
 
 ## Start by loading up our ldap query variables
-UIDTOOLS_PLIST="tld.domain.uidtools"
-SVC_ACCOUNT_NAME=$(defaults read $UIDTOOLS_PLIST SVC_ACCOUNT_NAME)
-SVC_ACCOUNT_PASS=$(defaults read $UIDTOOLS_PLIST SVC_ACCOUNT_PASS)
+UIDTOOLS_PLIST="consulting.artichoke.uidtools" #Must match ENABLE-UIDTools.sh
 DOMAIN=$(defaults read $UIDTOOLS_PLIST DOMAIN)
+KERB_REALM=$(defaults read $UIDTOOLS_PLIST KERB_REALM) #Your AD Kerberos Realm
 LDAP_SERVER=$(defaults read $UIDTOOLS_PLIST LDAP_SERVER)
 SEARCH_BASE=$(defaults read $UIDTOOLS_PLIST SEARCH_BASE)
+SVC_ACCOUNT_NAME=$(defaults read $UIDTOOLS_PLIST SVC_ACCOUNT_NAME) #Your service account
 ACCOUNTNAME="$1"
 ## Programatic Variables
 SCRIPT_DIR="$(dirname "$0")"
 
+## IF $LDAP_SERVER is not hard-coded, get first resp
+if [ -z "$LDAP_SERVER" ]; then
+	for i in $(dig srv _gc._tcp.$DOMAIN +short | awk '{print $4}')
+do
+	TEST_DC=${i%?}
+	if $(/usr/bin/nc -G 1 -z "$CLOSEST_DC" "389" >/dev/null 2>&1); then
+		CLOSEST_DC=$TEST_DC #As long as any DC is reachable on 389, there will end up being a value for $CLOSEST_DC
+		CLOSEST=$("$SCRIPT_DIR/cldap.pl" -d $DOMAIN -s $CLOSEST_DC)
+		if [ $CLOSEST -eq 1 ]; then 
+			break
+		fi
+	fi	
+done; else
+	if $(/usr/bin/nc -G 1 -z "$LDAP_SERVER" "389" >/dev/null 2>&1); then
+		CLOSEST_DC=$LDAP_SERVER
+	fi
+fi
+	
+	
+## Bail if no $CLOSEST_DC
+if [ -z "$CLOSEST_DC" ]; then
+	echo "No active DC Found"
+	exit 1
+fi 
+
+## Pull krbtgt for $SVC_ACCOUNT_NAME@$KERB_REALM
+kinit $SVC_ACCOUNT_NAME@$KERB_REALM >/dev/null 2>&1
+
 # Search LDAP for our user account
 if [[ $1 == *@* ]]; then 
-	RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(userPrincipalName=$ACCOUNTNAME)" "objectGUID")
+	RESULT=$(ldapsearch -Q -LLL -H ldap://$CLOSEST_DC -o ldif-wrap=no -b "${SEARCH_BASE}" "(userPrincipalName=$ACCOUNTNAME)" "objectGUID")
 	else
-	RESULT=$(ldapsearch -LLL -H ldap://$LDAP_SERVER -o ldif-wrap=no -x -D ${SVC_ACCOUNT_NAME}@$DOMAIN -w ${SVC_ACCOUNT_PASS} -b "${SEARCH_BASE}" "(sAMAccountName=$ACCOUNTNAME)" "objectGUID")
+	RESULT=$(ldapsearch -Q -LLL -H ldap://$CLOSEST_DC -o ldif-wrap=no -b "${SEARCH_BASE}" "(sAMAccountName=$ACCOUNTNAME)" "objectGUID")
 fi
+
+## Destroy krbtgt for $SVC_ACCOUNT_NAME@$KERB_REALM
+kdestroy -p $SVC_ACCOUNT_NAME@$KERB_REALM >/dev/null 2>&1
 
 # Get our user DN and objectGUID from the result above.
 USER_GUID_BASE64="$(echo "$RESULT" | awk -F ":: " '/objectGUID/ {print $2}')"
